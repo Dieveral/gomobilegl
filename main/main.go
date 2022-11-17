@@ -100,9 +100,9 @@ func main() {
 				touchX = e.X
 				touchY = e.Y
 			case key.Event:
-				if e.Direction == key.DirRelease {
+				if e.Direction == key.DirNone || e.Direction == key.DirPress {
 					switch e.Rune {
-					case '+':
+					case '+', '=':
 						koef *= 1.1
 					case '-':
 						koef /= 1.1
