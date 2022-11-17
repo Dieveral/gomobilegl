@@ -56,10 +56,13 @@ var (
 	color    gl.Attrib
 	buf      gl.Buffer
 
-	touchX float32
-	touchY float32
-	ratio  float32
-	koef   float32
+	locX     float32
+	locY     float32
+	difX     float32
+	difY     float32
+	ratio    float32
+	koef     float32
+	isMoving bool
 )
 
 func main() {
@@ -80,8 +83,8 @@ func main() {
 				}
 			case size.Event:
 				sz = e
-				touchX = float32(sz.WidthPx / 2)
-				touchY = float32(sz.HeightPx / 2)
+				locX = float32(sz.WidthPx / 2)
+				locY = float32(sz.HeightPx / 2)
 				ratio = float32(sz.HeightPx) / float32(sz.WidthPx)
 			case paint.Event:
 				if glctx == nil || e.External {
@@ -97,8 +100,21 @@ func main() {
 				// after this one is shown.
 				a.Send(paint.Event{})
 			case touch.Event:
-				touchX = e.X
-				touchY = e.Y
+				if e.Type == touch.TypeBegin {
+					difX = locX - e.X
+					difY = locY - e.Y
+					isMoving = true
+				} else if e.Type == touch.TypeMove {
+					if isMoving {
+						locX = e.X + difX
+						locY = e.Y + difY
+					}
+				} else if e.Type == touch.TypeEnd {
+					difX = 0
+					difY = 0
+					isMoving = false
+				}
+
 			case key.Event:
 				if e.Direction == key.DirNone || e.Direction == key.DirPress {
 					switch e.Rune {
@@ -150,7 +166,7 @@ func onPaint(glctx gl.Context, sz size.Event) {
 
 	glctx.UseProgram(program)
 
-	glctx.Uniform2f(offset, touchX/float32(sz.WidthPx), touchY/float32(sz.HeightPx))
+	glctx.Uniform2f(offset, locX/float32(sz.WidthPx), locY/float32(sz.HeightPx))
 
 	glctx.Uniform1f(aspect, ratio)
 	glctx.Uniform1f(scale, koef)
