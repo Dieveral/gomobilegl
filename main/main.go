@@ -53,7 +53,7 @@ var (
 	offset   gl.Uniform
 	scale    gl.Uniform
 	aspect   gl.Uniform
-	color    gl.Uniform
+	color    gl.Attrib
 	buf      gl.Buffer
 
 	touchX float32
@@ -128,7 +128,7 @@ func onStart(glctx gl.Context) {
 	glctx.BufferData(gl.ARRAY_BUFFER, triangleData, gl.STATIC_DRAW)
 
 	position = glctx.GetAttribLocation(program, "position")
-	color = glctx.GetUniformLocation(program, "color")
+	color = glctx.GetAttribLocation(program, "color")
 	offset = glctx.GetUniformLocation(program, "offset")
 	aspect = glctx.GetUniformLocation(program, "aspect")
 	scale = glctx.GetUniformLocation(program, "scale")
@@ -150,8 +150,6 @@ func onPaint(glctx gl.Context, sz size.Event) {
 
 	glctx.UseProgram(program)
 
-	glctx.Uniform4f(color, 1, 1, 1, 1)
-
 	glctx.Uniform2f(offset, touchX/float32(sz.WidthPx), touchY/float32(sz.HeightPx))
 
 	glctx.Uniform1f(aspect, ratio)
@@ -159,42 +157,52 @@ func onPaint(glctx gl.Context, sz size.Event) {
 
 	glctx.BindBuffer(gl.ARRAY_BUFFER, buf)
 	glctx.EnableVertexAttribArray(position)
-	glctx.VertexAttribPointer(position, coordsPerVertex, gl.FLOAT, false, 0, 0)
+	glctx.EnableVertexAttribArray(color)
+	vertexBytesSize := 4 * (coordsPerVertex + colorValuesPerVertex)
+	colorOffset := 4 * coordsPerVertex
+	glctx.VertexAttribPointer(position, coordsPerVertex, gl.FLOAT, false, vertexBytesSize, 0)
+	glctx.VertexAttribPointer(color, colorValuesPerVertex, gl.FLOAT, false, vertexBytesSize, colorOffset)
 	glctx.DrawArrays(gl.TRIANGLES, 0, vertexCount)
 	glctx.DisableVertexAttribArray(position)
+	glctx.DisableVertexAttribArray(color)
 
 	fps.Draw(sz)
 }
 
 var triangleData = f32.Bytes(binary.LittleEndian,
-	0.0, 0.3, 0.0, // top left
-	-0.26, -0.15, 0.0, // bottom left
-	0.26, -0.15, 0.0, // bottom right
+	/*coords*/ 0.0, 0.3, 0.0 /*color*/, 1.0, 0.0, 0.0, 1.0, // top left
+	/*coords*/ -0.26, -0.15, 0.0 /*color*/, 0.0, 1.0, 0.0, 1.0, // bottom left
+	/*coords*/ 0.26, -0.15, 0.0 /*color*/, 0.0, 0.0, 1.0, 1.0, // bottom right
 )
 
 const (
-	coordsPerVertex = 3
-	vertexCount     = 3
+	coordsPerVertex      = 3
+	colorValuesPerVertex = 4
+	vertexCount          = 3
 )
 
 const vertexShader = `#version 100
 uniform vec2 offset;
 uniform float aspect;
 uniform float scale;
+varying vec4 difColor;
 
 attribute vec4 position;
+attribute vec4 color;
+
 void main() {
 	// offset comes in with x/y values between 0 and 1.
 	// position bounds are -1 to 1.
 	vec4 offset4 = vec4(2.0*offset.x-1.0, 1.0-2.0*offset.y, 0, 0);
 	vec4 scaledPos = vec4(position.x * aspect * scale, position.y * scale, position.z, position.w);
 	gl_Position = scaledPos + offset4;
+	difColor = color;
 }
 `
 
 const fragmentShader = `#version 100
 precision mediump float;
-uniform vec4 color;
+varying vec4 difColor;
 void main() {
-	gl_FragColor = color;
+	gl_FragColor = difColor;
 }`
